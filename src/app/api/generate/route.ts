@@ -46,7 +46,7 @@ export async function POST(req: Request) {
         const fullPrompt = `${systemPrompt}\n\nHIER IS DE PRODUCTBESCHRIJVING:\n\n${description}`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
+            model: 'gemini-1.5-flash',
             contents: fullPrompt,
         });
 
