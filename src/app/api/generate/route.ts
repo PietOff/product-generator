@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
+import Groq from "groq-sdk";
 
-// Initialize the Gemini API client
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Initialize the Groq API client inside the function so build doesn't crash
 
 const PROMPTS: Record<string, string> = {
     landingPage: `Je bent een ervaren copywriter voor AbelTalent. Schrijf een converterende, professionele tekst voor een landingspagina op basis van de onderstaande productbeschrijving. De tekst moet wervend zijn, de pijnpunten van de doelgroep aanspreken en duidelijk maken hoe AbelTalent dit oplost. Gebruik tussenkopjes en opsommingstekens waar nuttig. Focus op de toegevoegde waarde en expertise.`,
@@ -27,12 +26,15 @@ export async function POST(req: Request) {
             );
         }
 
-        if (!process.env.GEMINI_API_KEY) {
+        const apiKey = process.env.GROQ_API_KEY;
+        if (!apiKey) {
             return NextResponse.json(
-                { error: 'GEMINI_API_KEY environment variable is missing' },
+                { error: 'GROQ_API_KEY environment variable is missing. Voeg deze toe in Vercel.' },
                 { status: 500 }
             );
         }
+
+        const groq = new Groq({ apiKey });
 
         const systemPrompt = PROMPTS[type];
 
@@ -43,16 +45,25 @@ export async function POST(req: Request) {
             );
         }
 
-        const fullPrompt = `${systemPrompt}\n\nHIER IS DE PRODUCTBESCHRIJVING:\n\n${description}`;
-
-        const response = await ai.models.generateContent({
-            model: 'gemini-1.5-flash',
-            contents: fullPrompt,
+        const chatCompletion = await groq.chat.completions.create({
+            messages: [
+                {
+                    role: "system",
+                    content: systemPrompt
+                },
+                {
+                    role: "user",
+                    content: "HIER IS DE PRODUCTBESCHRIJVING:\n\n" + description,
+                }
+            ],
+            model: "llama-3.3-70b-versatile",
+            temperature: 0.7,
+            max_tokens: 2000,
         });
 
-        return NextResponse.json({ text: response.text });
+        return NextResponse.json({ text: chatCompletion.choices[0]?.message?.content || "" });
     } catch (error: any) {
-        console.error('Gemini API Error:', error);
+        console.error('Groq API Error:', error);
         return NextResponse.json(
             { error: error.message || 'Error generating content' },
             { status: 500 }
